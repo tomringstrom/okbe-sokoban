@@ -123,6 +123,8 @@ from saved win events at their original precision. Equal action counts and achie
 Unnamed players are prompted again only in a new tab or on a fresh visit. The choice is held in `sessionStorage`, so it survives reloads, restarts, and automatic progression, and clears when the tab closes. Players with a saved name are not prompted again.
 
 On a confirmed loss, a circular 3–2–1 countdown restarts the level automatically. No restart re-opens the name prompt; switching levels or restarting manually cancels a pending countdown.
+Named entrants listed in `DISQUALIFIED` in `player_metrics.py` are barred from the ranked board and shown in a separate Disqualified section beneath it, with the stated reason. Ranks are assigned over the qualified rows alone, so barring an entrant closes the gap rather than leaving a hole in the numbering. This differs from a leaderboard reset and from exclusion: the run stays public, it simply does not compete for a prize. The match is on the public name, case-insensitively, and the API returns the two groups as `levels` and `disqualified`.
+
 Leaderboard reset excludes previous wins from public ranking while preserving private counters and trajectory history. Re-entering a name does not restore excluded scores.
 
 Visible leaderboards refresh every 15 seconds and on tab focus/visibility return. Background updates keep the current rows visible until the new response arrives. All three public challenges start at cell 28; Survival is verified solvable from that cell.

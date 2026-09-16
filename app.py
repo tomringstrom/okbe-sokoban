@@ -305,7 +305,8 @@ def player_name():
 def leaderboard():
     with lock:
         now = datetime.now(timezone.utc)
-        return jsonify(levels=metrics.leaderboard(), competition=dict(
+        board = metrics.leaderboard()
+        return jsonify(levels=board['levels'], disqualified=board['disqualified'], competition=dict(
             deadline=COMPETITION_DEADLINE.isoformat(), server_now=now.isoformat(),
             closed=now >= COMPETITION_DEADLINE))
 

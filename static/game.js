@@ -238,6 +238,20 @@ function formatRunTime(seconds,digits=3){
  const scale=10**digits,ticks=Math.round(Math.max(0,seconds)*scale),minutes=Math.floor(ticks/(60*scale));
  return minutes+':'+((ticks%(60*scale))/scale).toFixed(digits).padStart(3+digits,'0');
 }
+// Barred entrants: shown under the board so the result stays public, with the
+// leading column blank because they hold no rank. Same four columns as the
+// table above, so the two line up and the section reads as a continuation.
+function showDisqualified(rows){
+ const root=$('leaderboard-disqualified');if(!root)return;
+ root.replaceChildren();root.hidden=!rows.length;
+ if(!rows.length)return;
+ const title=document.createElement('p');title.className='dq-title';title.textContent='Disqualified';root.append(title);
+ const table=document.createElement('table');
+ for(const row of rows){const tr=document.createElement('tr');for(const value of ['—',row.name,row.steps,formatRunTime(row.seconds)]){const td=document.createElement('td');td.textContent=value;tr.append(td);}table.append(tr);}
+ root.append(table);
+ const reasons=[...new Set(rows.map(row=>row.reason).filter(Boolean))];
+ if(reasons.length){const note=document.createElement('p');note.className='dq-note';note.textContent=reasons.join(' ');root.append(note);}
+}
 async function refreshLeaderboard(force=false){
  if(!game)return;
  const key=game.level+':'+(game.outcome||'');
@@ -247,18 +261,21 @@ async function refreshLeaderboard(force=false){
  $('leaderboard-level').textContent=game.title;
  $('leaderboard-prize').textContent=`First-place prize: $${LEVEL_PRIZES[level]}`;
  const footer=document.querySelector('.standings-footer');
- if(footer)footer.innerHTML='Lowest action count wins.<br>Equal actions? Earliest solve wins.<br>Clock shows run duration.';
+ if(footer)footer.innerHTML="Lowest action count wins.<br>Equal actions? Your first run's time wins.<br>Clock shows run duration.";
  if(changed)$('leaderboard-rows').textContent='Loading…';
  try{
   const response=await fetch('/api/leaderboard');if(!response.ok)throw Error();
   const data=await response.json();if(current!==leaderboardRequest)return;
   syncContestClock(data.competition);
   const rows=data.levels[level]||[],root=$('leaderboard-rows');root.replaceChildren();
-  if(!rows.length){root.textContent='No winning runs yet. Be the first!';return;}
-  const table=document.createElement('table'),head=document.createElement('tr');
-  for(const label of ['#','Player','Actions','Run time']){const th=document.createElement('th');th.textContent=label;head.append(th);}table.append(head);
-  for(const row of rows){const tr=document.createElement('tr');if(row.rank<=3)tr.className='rank-'+row.rank;for(const value of [row.rank,row.name,row.steps,formatRunTime(row.seconds)]){const td=document.createElement('td');td.textContent=value;tr.append(td);}table.append(tr);}root.append(table);
- }catch(error){if(current===leaderboardRequest){$('leaderboard-rows').textContent='Leaderboard temporarily unavailable.';leaderboardKey=null;}}
+  if(!rows.length)root.textContent='No winning runs yet. Be the first!';
+  else{
+   const table=document.createElement('table'),head=document.createElement('tr');
+   for(const label of ['#','Player','Actions','Run time']){const th=document.createElement('th');th.textContent=label;head.append(th);}table.append(head);
+   for(const row of rows){const tr=document.createElement('tr');if(row.rank<=3)tr.className='rank-'+row.rank;for(const value of [row.rank,row.name,row.steps,formatRunTime(row.seconds)]){const td=document.createElement('td');td.textContent=value;tr.append(td);}table.append(tr);}root.append(table);
+  }
+  showDisqualified((data.disqualified||{})[level]||[]);
+ }catch(error){if(current===leaderboardRequest){$('leaderboard-rows').textContent='Leaderboard temporarily unavailable.';showDisqualified([]);leaderboardKey=null;}}
  finally{if(current===leaderboardRequest)leaderboardLoading=false;}
 }
 // Optional name; editing this field never sends game actions.

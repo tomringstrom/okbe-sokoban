@@ -9,6 +9,10 @@ import html
 TITLES = {'12':'Keys & doors', '10':'Boxes only', '11':'Survival', '13':'Keys, doors & survival'}
 COMPETITION_DEADLINE = datetime(2026, 9, 19, 6, 59, tzinfo=timezone.utc)
 
+# Entrants barred from the ranked board but still shown beneath it, so a result
+# stays visible without competing for a prize. Keyed by public name, casefolded.
+DISQUALIFIED = {'fable5': 'Automated solver, not competing for a prize.'}
+
 # Enough pairs that an unused one is almost always free, so a player who declines
 # to be named still gets a clean two-word label with nothing appended.
 PSEUDONYM_FIRST = ('Cedar', 'Willow', 'Mossy', 'Amber', 'Quiet', 'Silver', 'Maple', 'Fern',
@@ -111,11 +115,13 @@ class MetricsStore:
 
     def leaderboard(self):
         boards = {level: [] for level in ('12', '11', '13')}
+        barred = {level: [] for level in boards}
         for path in self.directory.glob('player-*.json'):
             data = json.loads(path.read_text())
             name = data.get('display_name') or data.get('pseudonym', '')
             if not name or data.get('leaderboard_excluded'):
                 continue
+            reason = DISQUALIFIED.get(name.casefold())
             for level in boards:
                 cutoff = data.get('leaderboard_since')
                 wins = [e for e in data.get('events', []) if e['event']=='win' and e['level']==level
@@ -127,12 +133,20 @@ class MetricsStore:
                 # produces a later event that never wins this comparison.
                 best = min(wins, key=lambda e:(e['moves'],e['time']), default=None)
                 if best is not None:
-                    boards[level].append(dict(name=name, steps=best['moves'], seconds=best['seconds'],
-                        _achieved_at=best['time']))
+                    row = dict(name=name, steps=best['moves'], seconds=best['seconds'],
+                        _achieved_at=best['time'])
+                    if reason is None:
+                        boards[level].append(row)
+                    else:
+                        barred[level].append(dict(row, reason=reason))
+        # Ties at equal actions go to the quicker first solve; the achievement
+        # time only separates runs equal on both.
+        order = lambda row: (row['steps'], row['seconds'], row['_achieved_at'], row['name'].casefold())
+        public = lambda row: {k: v for k, v in row.items() if not k.startswith('_')}
         for level, rows in boards.items():
-            # Ties at equal actions go to the quicker first solve; the
-            # achievement time only separates runs equal on both.
-            rows.sort(key=lambda row: (row['steps'], row['seconds'], row['_achieved_at'], row['name'].casefold()))
+            # Ranks are assigned over the qualified rows alone, so barring an
+            # entrant closes the gap rather than leaving a hole in the numbering.
+            rows.sort(key=order)
             previous = None
             for index, row in enumerate(rows, 1):
                 score = (row['steps'], row['seconds'])
@@ -140,8 +154,10 @@ class MetricsStore:
                     rank = index
                 row['rank'] = rank
                 previous = score
-            boards[level] = [{k:v for k,v in row.items() if not k.startswith('_')} for row in rows[:20]]
-        return boards
+            boards[level] = [public(row) for row in rows[:20]]
+            barred[level].sort(key=order)
+            barred[level] = [public(row) for row in barred[level][:20]]
+        return dict(levels=boards, disqualified=barred)
 
     def reset_leaderboard(self, player):
         self.players[player]['leaderboard_since'] = self.now()
