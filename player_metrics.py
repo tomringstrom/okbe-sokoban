@@ -55,8 +55,10 @@ class MetricsStore:
         elif event == 'win':
             counts['wins'] += 1
             best = counts['best_win_actions']
-            previous_time = self.winning_time(data, level)
-            if best is None or moves < best or (moves == best and (previous_time is None or seconds < previous_time)):
+            # Only a strictly better action count takes over the recorded time.
+            # Matching the count again, however quickly, leaves the first run's
+            # time standing.
+            if best is None or moves < best:
                 counts['best_win_seconds'] = round(seconds, 3)
             counts['best_win_actions'] = moves if best is None else min(best, moves)
         elif event == 'lose': counts['failures'] += 1
@@ -119,18 +121,21 @@ class MetricsStore:
                 wins = [e for e in data.get('events', []) if e['event']=='win' and e['level']==level
                     and datetime.fromisoformat(e['time']) < COMPETITION_DEADLINE
                     and (not cutoff or datetime.fromisoformat(e['time']) > datetime.fromisoformat(cutoff))]
-                # Action count is primary. Equal-action scores are ordered by
-                # when the player first solved that challenge, rather than by
-                # how long the run took.
+                # Action count is primary. `min` on (moves, time) picks the
+                # FIRST run to reach the lowest count, so the time carried below
+                # is that run's duration -- replaying the same count faster
+                # produces a later event that never wins this comparison.
                 best = min(wins, key=lambda e:(e['moves'],e['time']), default=None)
                 if best is not None:
                     boards[level].append(dict(name=name, steps=best['moves'], seconds=best['seconds'],
                         _achieved_at=best['time']))
         for level, rows in boards.items():
-            rows.sort(key=lambda row: (row['steps'], row['_achieved_at'], row['name'].casefold()))
+            # Ties at equal actions go to the quicker first solve; the
+            # achievement time only separates runs equal on both.
+            rows.sort(key=lambda row: (row['steps'], row['seconds'], row['_achieved_at'], row['name'].casefold()))
             previous = None
             for index, row in enumerate(rows, 1):
-                score = (row['steps'], row['_achieved_at'])
+                score = (row['steps'], row['seconds'])
                 if score != previous:
                     rank = index
                 row['rank'] = rank
@@ -149,12 +154,13 @@ class MetricsStore:
     @staticmethod
     def winning_time(data, level):
         counts = data.get('levels', {}).get(level, {})
-        if counts.get('best_win_seconds') is not None:
-            return counts['best_win_seconds']
+        # Events are appended in order, so the earliest win at the best action
+        # count is that player's first solve at it. Preferring the event history
+        # over the stored counter also repairs times saved under the old rule.
         times = [event['seconds'] for event in data.get('events', [])
             if event['event'] == 'win' and event['level'] == level
             and event['moves'] == counts.get('best_win_actions') and 'seconds' in event]
-        return min(times) if times else None
+        return times[0] if times else counts.get('best_win_seconds')
 
     def begin_trajectory(self, player, level, state, level_hash):
         attempt = secrets.token_hex(16)

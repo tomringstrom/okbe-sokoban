@@ -131,19 +131,19 @@ The public leaderboard shows the top 20 named players per visible level. Ties us
 
 First-time players see a welcome dialog offering Join leaderboard or Play anonymously.
 Either choice is remembered server-side for that browser; names remain editable later.
-Leaderboards order by fewest winning actions, then earliest achievement time for the same winning run.
+Leaderboards order by fewest winning actions, then by how long the first run at that action count took.
 Time starts with the first accepted action, so entering a name does not count, and includes
 pauses afterward. New times have millisecond precision. Older best-run times are recovered
 from saved win events at their original precision. Equal action counts and achievement timestamps share rank.
 
-Unnamed players are prompted again on a page reload or explicit level restart. Dismissal is held in memory through ordinary moves and automatic progression. Players with a saved name are not prompted again.
+Unnamed players are prompted again only in a new tab or on a fresh visit. The choice is held in `sessionStorage`, so it survives reloads, restarts, and automatic progression, and clears when the tab closes. Players with a saved name are not prompted again.
 
-On a confirmed loss, a circular 3–2–1 countdown restarts the level automatically. Automatic retries skip the name prompt; switching levels or restarting manually cancels a pending countdown.
+On a confirmed loss, a circular 3–2–1 countdown restarts the level automatically. No restart re-opens the name prompt; switching levels or restarting manually cancels a pending countdown.
 Leaderboard reset excludes previous wins from public ranking while preserving private counters and trajectory history. Re-entering a name does not restore excluded scores.
 
 Visible leaderboards refresh every 15 seconds and on tab focus/visibility return. Background updates keep the current rows visible until the new response arrives. All three public challenges start at cell 28; Survival is verified solvable from that cell.
 
-Competition tie-break rule: fewest winning actions, then earliest achievement time for that same action count. A later faster run does not replace an earlier equal-action solve. The visible clock starts on the first action, includes pauses, and freezes at the authoritative duration on win/loss. Restart resets it to zero. The leaderboard displays run duration; UTC achievement timestamps are used for ranking.
+Competition tie-break rule: fewest winning actions, then the duration of the player’s first run at that action count. That run owns the score: replaying the same action count faster does not improve it, so a standing cannot be improved by grinding for a quicker time at a count already reached. Only a strictly lower action count takes over, and it brings its own first-run duration. The achievement timestamp separates only runs equal on both actions and duration. The visible clock starts on the first action, includes pauses, and freezes at the authoritative duration on win/loss. Restart resets it to zero. Timestamps retain microsecond precision.
 
 A player can be permanently excluded from the prize leaderboard with `leaderboard_excluded`. Exclusion clears the name, prevents setting another name on that player record, hides the name-entry UI, and excludes future wins without deleting trajectories or private statistics. The organizer player is excluded.
 

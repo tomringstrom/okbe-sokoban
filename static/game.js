@@ -1,9 +1,10 @@
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('board'), ctx=canvas.getContext('2d');
 let game=null, token=sessionStorage.getItem('okbe-play-token'), busy=false;
-// Deliberately page-local: a reload or new tab asks unnamed players again.
-let welcomeDismissed=false;
-function rememberNameChoice(){welcomeDismissed=true;}
+// Tab-local: the choice outlives reloads and restarts, and clears when the tab
+// closes, so a new tab or a fresh visit asks unnamed players again.
+let welcomeDismissed=sessionStorage.getItem('okbe-name-asked')==='1';
+function rememberNameChoice(){welcomeDismissed=true;sessionStorage.setItem('okbe-name-asked','1');}
 // Challenge progression
 const LEVEL_ORDER = ['12','11','13'];
 let advanceTimer = null;
@@ -44,7 +45,7 @@ function scheduleLossRestart(){
   lossTimer=setInterval(()=>{
    if(token+':'+game.revision!==key||game.outcome!=='lose'){cancelLossRestart();return;}
    seconds--;
-   if(seconds===0){cancelLossRestart();request('restart',{automatic:true});return;}
+   if(seconds===0){cancelLossRestart();request('restart');return;}
    $('loss-seconds').textContent=String(seconds);
   },1000);
  },300);
@@ -164,7 +165,6 @@ async function request(operation,extra={}){
   if(!response.ok){pendingInputs.length=0;throw Error(data.error||'Unable to take that action.');}
   if(data.game){
    received=true;confirmedGame=data.game;inFlight=null;game=confirmedGame;
-   if(operation==='restart'&&!game.display_name)welcomeDismissed=!!extra.automatic;
    if(operation==='resume'&&!LEVEL_ORDER.includes(game.level))pendingInputs.push({operation:'start',extra:{level:LEVEL_ORDER[0]}});
    if(data.token){token=data.token;sessionStorage.setItem('okbe-play-token',token);}
    // Sync the real clock, then draw only the reconciled position (no backward flash).
@@ -232,7 +232,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){stopMoving
 let leaderboardKey=null,leaderboardRequest=0,leaderboardLoading=false;
 const LEVEL_PRIZES={'12':5,'11':10,'13':20};
 const profileNote=document.querySelector('.player-profile small');
-if(profileNote)profileNote.textContent='Your best winning score will appear on the leaderboard. Fewest actions wins; earliest solve breaks ties. Movement and Space both count. Your name is optional.';
+if(profileNote)profileNote.textContent='Your best winning score will appear on the leaderboard. Fewest actions wins; the time of your first run at that count breaks ties. Movement and Space both count. Your name is optional.';
 function formatRunTime(seconds,digits=3){
  if(seconds===null||seconds===undefined)return '—';
  const scale=10**digits,ticks=Math.round(Math.max(0,seconds)*scale),minutes=Math.floor(ticks/(60*scale));
