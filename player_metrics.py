@@ -13,6 +13,13 @@ COMPETITION_DEADLINE = datetime(2026, 9, 19, 6, 59, tzinfo=timezone.utc)
 # stays visible without competing for a prize. Keyed by public name, casefolded.
 DISQUALIFIED = {'fable5': 'Automated solver, not competing for a prize.'}
 
+# Kept off the public board entirely -- neither ranked nor listed as barred.
+# For the organisers' own runs and for anyone who asks to be taken off. Their
+# counters and trajectories are untouched; only the public view omits them.
+# Keyed by public name, casefolded. Pseudonyms are unique (see new_pseudonym),
+# so a name here cannot come to mean a different player.
+WITHHELD = {'copper lynx'}
+
 # Enough pairs that an unused one is almost always free, so a player who declines
 # to be named still gets a clean two-word label with nothing appended.
 PSEUDONYM_FIRST = ('Cedar', 'Willow', 'Mossy', 'Amber', 'Quiet', 'Silver', 'Maple', 'Fern',
@@ -119,7 +126,7 @@ class MetricsStore:
         for path in self.directory.glob('player-*.json'):
             data = json.loads(path.read_text())
             name = data.get('display_name') or data.get('pseudonym', '')
-            if not name or data.get('leaderboard_excluded'):
+            if not name or data.get('leaderboard_excluded') or name.casefold() in WITHHELD:
                 continue
             reason = DISQUALIFIED.get(name.casefold())
             for level in boards:
